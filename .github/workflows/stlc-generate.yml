@@ -19,7 +19,11 @@ permissions:
 env:
   STLC_SPEC: stainless/openapi.yml
   STLC_CONFIG: stainless/openapi.stainless.yml
-  DEFAULT_TARGETS: csharp,go,java,kotlin,php,python,ruby,typescript
+  # typescript intentionally excluded: stlc-mcp's yarn.lock is tracked as
+  # custom code but scripts/build's `yarn install` keeps rewriting it,
+  # causing integrate:prepare to fail every CI run. Re-add when fixed
+  # upstream (see FRICTION_LOG.md "TypeScript build self-conflicts").
+  DEFAULT_TARGETS: csharp,go,java,kotlin,php,python,ruby
 
 jobs:
   release:

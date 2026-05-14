@@ -168,6 +168,8 @@ targets:
       release:
         branch: main
         prerelease: true
+    options:
+      use_uv: true
     staging_repo: phoebe-bird/phoebe-python-staging
   java:
     reverse_domain: com.phoebe.api

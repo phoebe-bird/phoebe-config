@@ -87,6 +87,19 @@ jobs:
       - name: Install stlc
         env:
           STLC_READ_TOKEN: ${{ secrets.STLC_READ_TOKEN }}
+          # Pinned SHAs to avoid the version-skew bug where main of stlc and
+          # stlc-typescript can land out of lockstep, breaking codegen for all
+          # targets with "Package subpath './dist/codegen.lib.mjs' is not
+          # defined by exports". Bump these together when validated locally.
+          STLC_SHA: 8f8df5bbbdc3def1d88cccf39e1c20b05a7525d9
+          STLC_CSHARP_SHA: 14b0aa2bb03f81dce1f0bfa7e5a2583b9b750d8c
+          STLC_GO_SHA: 1a6bcc05b141c98546b99cfb2a5a35fe18df6300
+          STLC_JAVA_SHA: 661cab004a9a4bdd24158cb73ea680228d943a59
+          STLC_MCP_SHA: 4927659e66b845ad1b544787640b0ba5f40111e0
+          STLC_PHP_SHA: b1688f0befa544fa2faadeb7f23885c17996795b
+          STLC_PYTHON_SHA: e9252aa49215920ae1acaae3445db6ce765f3beb
+          STLC_RUBY_SHA: c8ea11a3ed8522519d99aae2684951ba9d9b1816
+          STLC_TYPESCRIPT_SHA: 8487768307fb1ab3402083770e3a3e42d809b51b
         run: |
           git_config_key="url.https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/.insteadOf"
           cleanup_stlc_auth() { git config --global --unset-all "$git_config_key" || true; }
@@ -94,15 +107,15 @@ jobs:
           git config --global --add "$git_config_key" "https://github.com/stainless/"
 
           npm install -g \
-            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc.git" \
-            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-csharp.git" \
-            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-go.git" \
-            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-java.git" \
-            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-mcp.git" \
-            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-php.git" \
-            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-python.git" \
-            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-ruby.git" \
-            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-typescript.git"
+            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc.git#${STLC_SHA}" \
+            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-csharp.git#${STLC_CSHARP_SHA}" \
+            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-go.git#${STLC_GO_SHA}" \
+            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-java.git#${STLC_JAVA_SHA}" \
+            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-mcp.git#${STLC_MCP_SHA}" \
+            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-php.git#${STLC_PHP_SHA}" \
+            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-python.git#${STLC_PYTHON_SHA}" \
+            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-ruby.git#${STLC_RUBY_SHA}" \
+            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-typescript.git#${STLC_TYPESCRIPT_SHA}"
 
       - name: Resolve release branch and PR metadata
         id: meta

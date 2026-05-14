@@ -1,0 +1,218 @@
+# yaml-language-server: $schema=https://app.stainlessapi.com/config.schema.json
+
+organization:
+  name: phoebe
+  docs: https://science.ebird.org/en/use-ebird-data/download-ebird-data-products
+  contact: sayornis.phoebe.apis@gmail.com
+resources:
+  data:
+    subresources:
+      observations:
+        models:
+          observation: '#/components/schemas/observation'
+        subresources:
+          recent:
+            methods:
+              list:
+                paginated: false
+                endpoint: get /data/obs/{regionCode}/recent
+            subresources:
+              notable:
+                methods:
+                  list:
+                    paginated: false
+                    endpoint: get /data/obs/{regionCode}/recent/notable
+              species:
+                methods:
+                  retrieve: get /data/obs/{regionCode}/recent/{speciesCode}
+              historic:
+                methods:
+                  list:
+                    paginated: false
+                    endpoint: get /data/obs/{regionCode}/historic/{y}/{m}/{d}
+          geo:
+            subresources:
+              recent:
+                methods:
+                  list:
+                    paginated: false
+                    endpoint: get /data/obs/geo/recent
+                subresources:
+                  species:
+                    methods:
+                      list:
+                        paginated: false
+                        endpoint: get /data/obs/geo/recent/{speciesCode}
+                  notable:
+                    methods:
+                      list:
+                        paginated: false
+                        endpoint: get /data/obs/geo/recent/notable
+          nearest:
+            subresources:
+              geo_species:
+                methods:
+                  list:
+                    paginated: false
+                    endpoint: get /data/nearest/geo/recent/{speciesCode}
+
+  product:
+    subresources:
+      lists:
+        methods:
+          retrieve: get /product/lists/{regionCode}
+        subresources:
+          historical:
+            methods:
+              retrieve: get /product/lists/{regionCode}/{y}/{m}/{d}
+      top100:
+        methods:
+          retrieve: get /product/top100/{regionCode}/{y}/{m}/{d}
+      stats:
+        methods:
+          retrieve: get /product/stats/{regionCode}/{y}/{m}/{d}
+      speciesList:
+        methods:
+          list:
+            paginated: false
+            endpoint: get /product/spplist/{regionCode}
+      checklist:
+        methods:
+          view: get /product/checklist/view/{subId}
+  ref:
+    subresources:
+      region:
+        subresources:
+          adjacent:
+            methods:
+              list:
+                paginated: false
+                endpoint: get /ref/adjacent/{regionCode}
+          info:
+            methods:
+              retrieve: get /ref/region/info/{regionCode}
+          list:
+            methods:
+              list:
+                paginated: false
+                endpoint: get /ref/region/list/{regionType}/{parentRegionCode}
+      hotspot:
+        methods:
+          list:
+            paginated: false
+            endpoint: get /ref/hotspot/{regionCode}
+        subresources:
+          geo:
+            methods:
+              retrieve: get /ref/hotspot/geo
+          info:
+            methods:
+              retrieve: get /ref/hotspot/info/{locId}
+      taxonomy:
+        subresources:
+          ebird:
+            methods:
+              retrieve: get /ref/taxonomy/ebird
+          forms:
+            methods:
+              list:
+                paginated: false
+                endpoint: get /ref/taxon/forms/{speciesCode}
+          locales:
+            methods:
+              list:
+                paginated: false
+                endpoint: get /ref/taxa-locales/ebird
+          versions:
+            methods:
+              list:
+                paginated: false
+                endpoint: get /ref/taxonomy/versions
+          speciesGroups:
+            methods:
+              list:
+                paginated: false
+                endpoint: get /ref/sppgroup/{speciesGrouping}
+targets:
+  typescript:
+    package_name: phoebe-ebird
+    production_repo: phoebe-bird/phoebe-node
+    publish:
+      npm: true
+    options:
+      node_migration:
+        # Will generate a MIGRATION.md for users
+        previous_version: '1' # last version before migrating
+        migrated_version: '2' # version for updated release
+      mcp_server:
+        package_name: phoebe-ebird-mcp
+        enable_all_resources: true
+        publish: { npm: true }
+    staging_repo: phoebe-bird/phoebe-typescript-staging
+  go:
+    package_name: phoebe
+    production_repo: phoebe-bird/phoebe-go
+    staging_repo: phoebe-bird/phoebe-go-staging
+  python:
+    package_name: phoebe_bird
+    production_repo: phoebe-bird/phoebe-python
+    publish:
+      pypi: true
+    staging_repo: phoebe-bird/phoebe-python-staging
+  java:
+    reverse_domain: com.phoebe.api
+    production_repo: phoebe-bird/phoebe-java
+    publish:
+      maven: false
+    staging_repo: phoebe-bird/phoebe-java-staging
+  kotlin:
+    reverse_domain: com.phoebe.api
+    production_repo: phoebe-bird/phoebe-kotlin
+    publish:
+      maven: false
+    staging_repo: phoebe-bird/phoebe-kotlin-staging
+  ruby:
+    gem_name: phoebe
+    production_repo: phoebe-bird/phoebe-ruby
+    publish:
+      rubygems: true
+    staging_repo: phoebe-bird/phoebe-ruby-staging
+  csharp:
+    package_name: phoebe
+    production_repo: phoebe-bird/phoebe-csharp
+    edition: csharp.2025-10-08
+    publish:
+      nuget: false
+    staging_repo: phoebe-bird/phoebe-csharp-staging
+  php:
+    package_name: phoebe
+    production_repo: phoebe-bird/phoebe-php
+    edition: php.2025-10-08
+    composer_package_name: phoebe-bird/phoebe
+    staging_repo: phoebe-bird/phoebe-php-staging
+settings:
+  license: Apache-2.0
+client_settings:
+  default_timeout: PT60S
+  opts:
+    api_key:
+      type: string
+      auth:
+        security_scheme: APIKeyHeader
+      read_env: EBIRD_API_KEY
+environments:
+  production: https://api.ebird.org/v2
+query_settings:
+  nested_format: brackets
+  array_format: comma
+readme:
+  example_requests:
+    default:
+      type: request
+      endpoint: get /ref/hotspot/info/{locId}
+      params: &ref_0
+        locId: L99381
+    headline:
+      type: request
+      endpoint: get /ref/hotspot/info/{locId}
+      params: *ref_0

@@ -9,7 +9,7 @@
 openapi: 3.0.0
 info:
   title: eBird API 2.0
-  version: 1.0.2
+  version: 1.0.3
 servers:
   - url: https://api.ebird.org/v2/
 components:

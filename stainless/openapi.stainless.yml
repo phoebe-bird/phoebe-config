@@ -212,6 +212,7 @@ targets:
     edition: php.2025-10-08
     composer_package_name: phoebe-bird/phoebe
     publish:
+      packagist: false
       release:
         branch: main
         prerelease: true

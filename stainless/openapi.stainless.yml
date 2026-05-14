@@ -139,6 +139,9 @@ targets:
     production_repo: phoebe-bird/phoebe-node
     publish:
       npm: true
+      release:
+        branch: main
+        prerelease: true
     options:
       node_migration:
         # Will generate a MIGRATION.md for users
@@ -152,30 +155,46 @@ targets:
   go:
     package_name: phoebe
     production_repo: phoebe-bird/phoebe-go
+    publish:
+      release:
+        branch: main
+        prerelease: true
     staging_repo: phoebe-bird/phoebe-go-staging
   python:
     package_name: phoebe_bird
     production_repo: phoebe-bird/phoebe-python
     publish:
       pypi: true
+      release:
+        branch: main
+        prerelease: true
     staging_repo: phoebe-bird/phoebe-python-staging
   java:
     reverse_domain: com.phoebe.api
     production_repo: phoebe-bird/phoebe-java
     publish:
       maven: false
+      release:
+        branch: main
+        prerelease: true
     staging_repo: phoebe-bird/phoebe-java-staging
   kotlin:
     reverse_domain: com.phoebe.api
     production_repo: phoebe-bird/phoebe-kotlin
     publish:
       maven: false
+      release:
+        branch: main
+        prerelease: true
     staging_repo: phoebe-bird/phoebe-kotlin-staging
   ruby:
     gem_name: phoebe
     production_repo: phoebe-bird/phoebe-ruby
     publish:
       rubygems: true
+      release:
+        branch: main
+        prerelease: true
     staging_repo: phoebe-bird/phoebe-ruby-staging
   csharp:
     package_name: phoebe
@@ -183,12 +202,19 @@ targets:
     edition: csharp.2025-10-08
     publish:
       nuget: false
+      release:
+        branch: main
+        prerelease: true
     staging_repo: phoebe-bird/phoebe-csharp-staging
   php:
     package_name: phoebe
     production_repo: phoebe-bird/phoebe-php
     edition: php.2025-10-08
     composer_package_name: phoebe-bird/phoebe
+    publish:
+      release:
+        branch: main
+        prerelease: true
     staging_repo: phoebe-bird/phoebe-php-staging
 settings:
   license: Apache-2.0

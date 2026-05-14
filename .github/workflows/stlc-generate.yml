@@ -1,0 +1,258 @@
+name: Generate SDKs
+
+on:
+  pull_request:
+    types: [closed]
+    paths:
+      - 'stainless/*'
+      - '.github/workflows/stlc-generate.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  id-token: write
+
+env:
+  STLC_SPEC: stainless/openapi.yml
+  STLC_CONFIG: stainless/openapi.stainless.yml
+  DEFAULT_TARGETS: csharp,go,java,kotlin,php,python,ruby,typescript
+
+jobs:
+  release:
+    if: |
+      (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout config repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          token: ${{ secrets.SDKS_WRITE_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Setup Yarn (phoebe TypeScript SDK uses yarn 1.x, not pnpm)
+        run: npm install -g yarn@1.22.22
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+          bundler-cache: false
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+          cache: false
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.x'
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer
+
+      - name: Configure git for stlc
+        env:
+          GH_TOKEN: ${{ secrets.SDKS_WRITE_TOKEN }}
+        run: |
+          git config --global user.name "stlc-bot"
+          git config --global user.email "stlc-bot@users.noreply.github.com"
+          gh auth setup-git
+
+      - name: Install stlc
+        env:
+          STLC_READ_TOKEN: ${{ secrets.STLC_READ_TOKEN }}
+        run: |
+          git_config_key="url.https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/.insteadOf"
+          cleanup_stlc_auth() { git config --global --unset-all "$git_config_key" || true; }
+          trap cleanup_stlc_auth EXIT
+          git config --global --add "$git_config_key" "https://github.com/stainless/"
+
+          npm install -g \
+            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc.git" \
+            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-csharp.git" \
+            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-go.git" \
+            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-java.git" \
+            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-mcp.git" \
+            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-php.git" \
+            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-python.git" \
+            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-ruby.git" \
+            "git+https://x-access-token:${STLC_READ_TOKEN}@github.com/stainless/stlc-typescript.git"
+
+      - name: Resolve release branch and PR metadata
+        id: meta
+        env:
+          PR_NUM: ${{ github.event.pull_request.number }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_TITLE_SRC: ${{ github.event.pull_request.title }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          BRANCH="$PR_HEAD_REF"
+          COMMIT_MSG="chore: regenerate from ${REPO_NAME}#${PR_NUM}"
+          PR_TITLE="chore: regenerate SDKs from ${REPO_NAME}#${PR_NUM} (${PR_TITLE_SRC})"
+          PR_BODY="Automated SDK regeneration from ${REPO_NAME} PR #${PR_NUM}: ${PR_URL}"
+
+          {
+            echo "branch=${BRANCH}"
+            echo "commit_msg<<META_EOF"
+            echo "$COMMIT_MSG"
+            echo "META_EOF"
+            echo "pr_title<<META_EOF"
+            echo "$PR_TITLE"
+            echo "META_EOF"
+            echo "pr_body<<META_EOF"
+            echo "$PR_BODY"
+            echo "META_EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Resolve targets and clone SDK repos
+        id: targets
+        env:
+          GH_TOKEN: ${{ secrets.SDKS_WRITE_TOKEN }}
+          TARGETS: ${{ env.DEFAULT_TARGETS }}
+          BRANCH: ${{ steps.meta.outputs.branch }}
+          OUTPUT_DIR: /tmp/sdk-output
+        run: |
+          echo "list=$TARGETS" >> "$GITHUB_OUTPUT"
+
+          yq '.targets | to_entries[] | select(.value.staging_repo // .value.production_repo) | .key + "=" + (.value.staging_repo // .value.production_repo)' \
+            "$STLC_CONFIG" > /tmp/target-repos.txt
+
+          : > /tmp/target-repos-built.txt
+          while IFS='=' read -r name repo; do
+            if echo "$TARGETS" | tr ',' '\n' | grep -qx "$name"; then
+              echo "${name}=${repo}" >> /tmp/target-repos-built.txt
+            fi
+          done < /tmp/target-repos.txt
+
+          mkdir -p "$OUTPUT_DIR"
+
+          while IFS='=' read -r name repo; do
+            repo_name="${repo##*/}"
+            clone_dir="${OUTPUT_DIR}/${repo_name}"
+
+            if [ -d "$clone_dir/.git" ]; then
+              continue
+            fi
+
+            echo "::group::Cloning $repo to $clone_dir"
+            if gh repo clone "$repo" "$clone_dir"; then
+              gh api -X DELETE "repos/${repo}/git/refs/heads/${BRANCH}" 2>/dev/null \
+                || echo "No existing branch on $repo"
+              git -C "$clone_dir" checkout -B "$BRANCH"
+            else
+              echo "::warning::Could not clone $repo (may not exist yet); stlc will generate fresh"
+              rm -rf "$clone_dir"
+            fi
+            echo "::endgroup::"
+          done < /tmp/target-repos-built.txt
+
+      - name: Build all SDKs
+        id: build
+        env:
+          BRANCH: ${{ steps.meta.outputs.branch }}
+          COMMIT_MSG: ${{ steps.meta.outputs.commit_msg }}
+          GH_TOKEN: ${{ secrets.SDKS_WRITE_TOKEN }}
+        run: |
+          targets="${{ steps.targets.outputs.list }}"
+
+          set +e
+          echo "Building targets: $targets"
+          stlc build \
+            --branch "$BRANCH" \
+            --commit "$COMMIT_MSG" \
+            --spec "$STLC_SPEC" \
+            --config "$STLC_CONFIG" \
+            --output /tmp/sdk-output \
+            --push \
+            --targets "$targets"
+          exit_code=$?
+          set -e
+
+          echo "exit_code=$exit_code" >> "$GITHUB_OUTPUT"
+
+      - name: Commit and push updated tracking files
+        if: steps.build.outputs.exit_code == '0'
+        env:
+          GH_TOKEN: ${{ secrets.SDKS_WRITE_TOKEN }}
+        run: |
+          git add stainless/custom-code/ 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "No tracking-file changes to commit"
+          else
+            git commit -m "chore: update custom-code tracking"
+            git push origin "HEAD:${{ github.event.pull_request.base.ref || github.ref_name }}"
+          fi
+
+      - name: Open PRs on SDK repos
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.SDKS_WRITE_TOKEN }}
+          BRANCH: ${{ steps.meta.outputs.branch }}
+          PR_TITLE: ${{ steps.meta.outputs.pr_title }}
+          PR_BODY: ${{ steps.meta.outputs.pr_body }}
+        run: |
+          while IFS='=' read -r name repo; do
+            repo_name="${repo##*/}"
+            generated_dir="/tmp/sdk-output/${repo_name}"
+
+            if [ ! -d "$generated_dir/.git" ]; then
+              echo "::warning::No clone for $name (build skipped or clone failed)"
+              continue
+            fi
+
+            git -C "$generated_dir" fetch origin "$BRANCH" 2>/dev/null || true
+            local_head=$(git -C "$generated_dir" rev-parse HEAD)
+            main_head=$(git -C "$generated_dir" rev-parse origin/main)
+            remote_head=$(git -C "$generated_dir" rev-parse --verify --quiet "refs/remotes/origin/$BRANCH" 2>/dev/null || true)
+
+            if [ "$local_head" = "$main_head" ]; then
+              echo "No changes for $name, skipping PR"
+              continue
+            fi
+
+            if [ -z "$remote_head" ] || [ "$local_head" != "$remote_head" ]; then
+              echo "::warning::Push did not land for $name -> $repo; skipping PR"
+              continue
+            fi
+
+            echo "::group::Opening PR for $name -> $repo"
+            gh pr create \
+                --repo "$repo" \
+                --base main \
+                --head "$BRANCH" \
+                --title "$PR_TITLE" \
+                --body "$PR_BODY" \
+                || echo "::notice::PR may already exist on $repo (stlc force-pushed the existing branch)"
+            echo "::endgroup::"
+          done < /tmp/target-repos-built.txt
+
+      - name: Fail if build found errors
+        if: steps.build.outputs.exit_code != '0'
+        run: exit 1
